@@ -77,30 +77,30 @@
 
       <div v-if="restockingOrders.length > 0" class="card">
         <div class="card-header">
-          <h3 class="card-title">Submitted Orders ({{ restockingOrders.length }})</h3>
+          <h3 class="card-title">{{ t('restocking.submittedOrders') }} ({{ restockingOrders.length }})</h3>
         </div>
         <div class="table-container">
           <table class="orders-table">
             <thead>
               <tr>
-                <th>Order Number</th>
-                <th>Items</th>
-                <th>Status</th>
-                <th>Submitted</th>
-                <th>Est. Delivery</th>
-                <th>Lead Time</th>
-                <th>Total Cost</th>
+                <th>{{ t('restocking.table.orderNumber') }}</th>
+                <th>{{ t('restocking.table.items') }}</th>
+                <th>{{ t('orders.table.status') }}</th>
+                <th>{{ t('restocking.table.submitted') }}</th>
+                <th>{{ t('restocking.table.estDelivery') }}</th>
+                <th>{{ t('restocking.table.leadTime') }}</th>
+                <th>{{ t('restocking.table.totalCost') }}</th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="order in restockingOrders" :key="order.id">
                 <td><strong>{{ order.order_number }}</strong></td>
-                <td>{{ order.items.length }} item{{ order.items.length !== 1 ? 's' : '' }}</td>
+                <td>{{ t('restocking.table.itemsCount', { count: order.items.length }) }}</td>
                 <td><span class="badge info">{{ order.status }}</span></td>
                 <td>{{ formatDate(order.submitted_at) }}</td>
                 <td>{{ formatDate(order.estimated_delivery) }}</td>
                 <td>{{ order.lead_time_days }} days</td>
-                <td><strong>${{ order.total_cost.toLocaleString() }}</strong></td>
+                <td><strong>{{ currencySymbol }}{{ order.total_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</strong></td>
               </tr>
             </tbody>
           </table>
@@ -162,6 +162,7 @@ export default {
         restockingOrders.value = await api.getRestockingOrders()
       } catch (e) {
         console.error(e)
+        error.value = 'Failed to load restocking orders: ' + e.message
       }
     }
 
@@ -210,8 +211,7 @@ export default {
       formatDate,
       currencySymbol,
       translateProductName,
-      translateCustomerName,
-      loadRestockingOrders
+      translateCustomerName
     }
   }
 }

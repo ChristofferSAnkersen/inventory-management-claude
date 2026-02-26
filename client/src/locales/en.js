@@ -311,6 +311,20 @@ export default {
     selectLanguage: 'Select Language'
   },
 
+  // Restocking
+  restocking: {
+    submittedOrders: 'Submitted Orders',
+    table: {
+      orderNumber: 'Order Number',
+      items: 'Items',
+      submitted: 'Submitted',
+      estDelivery: 'Est. Delivery',
+      leadTime: 'Lead Time',
+      totalCost: 'Total Cost',
+      itemsCount: '{count} items'
+    }
+  },
+
   // Common
   common: {
     loading: 'Loading...',

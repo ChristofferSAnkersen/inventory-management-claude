@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import uuid
 from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
 
 # In-memory store for submitted restocking orders
@@ -349,7 +350,7 @@ class CreateRestockingOrderRequest(BaseModel):
 class RestockingOrder(BaseModel):
     id: str
     order_number: str
-    items: List[dict]
+    items: List[RestockingOrderItem]
     status: str
     submitted_at: str
     estimated_delivery: str
@@ -385,18 +386,18 @@ def get_restocking_recommendations():
 @app.post("/api/restocking/orders", response_model=RestockingOrder)
 def create_restocking_order(request: CreateRestockingOrderRequest):
     """Submit a restocking order."""
-    order_id = str(len(restocking_orders) + 1)
-    order_number = f"RST-{datetime.now().strftime('%Y%m%d')}-{order_id.zfill(4)}"
-    submitted_at = datetime.now().isoformat()
+    order_id = str(uuid.uuid4())[:8]
+    order_number = f"RST-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{order_id.upper()}"
+    submitted_at = datetime.now(timezone.utc).isoformat()
     max_lead_time = max(
         (FORECAST_ITEM_META.get(item.sku, {}).get("lead_time_days", 14) for item in request.items),
         default=14,
     )
-    estimated_delivery = (datetime.now() + timedelta(days=max_lead_time)).isoformat()
+    estimated_delivery = (datetime.now(timezone.utc) + timedelta(days=max_lead_time)).isoformat()
     order = {
         "id": order_id,
         "order_number": order_number,
-        "items": [item.dict() for item in request.items],
+        "items": [item.model_dump() for item in request.items],
         "status": "Submitted",
         "submitted_at": submitted_at,
         "estimated_delivery": estimated_delivery,

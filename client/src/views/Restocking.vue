@@ -16,7 +16,7 @@
             <div class="budget-sub">Drag to set your restocking budget</div>
           </div>
           <div class="budget-display">
-            <span class="budget-amount">${{ budget.toLocaleString() }}</span>
+            <span class="budget-amount">{{ currencySymbol }}{{ budget.toLocaleString() }}</span>
           </div>
         </div>
         <div class="slider-wrapper">
@@ -40,10 +40,10 @@
         </div>
         <div class="budget-usage">
           <span :class="{ 'over-budget-text': totalSelected > budget }">
-            ${{ totalSelected.toLocaleString(undefined, { maximumFractionDigits: 0 }) }} used
+            {{ currencySymbol }}{{ totalSelected.toLocaleString(undefined, { maximumFractionDigits: 0 }) }} used
           </span>
           <span class="budget-remaining">
-            ${{ Math.max(0, budget - totalSelected).toLocaleString(undefined, { maximumFractionDigits: 0 }) }} remaining
+            {{ currencySymbol }}{{ Math.max(0, budget - totalSelected).toLocaleString(undefined, { maximumFractionDigits: 0 }) }} remaining
           </span>
         </div>
       </div>
@@ -100,9 +100,9 @@
                 <td class="col-num">
                   <span class="gap-badge">+{{ item.demand_gap.toLocaleString() }}</span>
                 </td>
-                <td class="col-num">${{ item.unit_cost.toFixed(2) }}</td>
+                <td class="col-num">{{ currencySymbol }}{{ item.unit_cost.toFixed(2) }}</td>
                 <td class="col-num">{{ item.recommended_quantity.toLocaleString() }}</td>
-                <td class="col-num"><strong>${{ item.estimated_cost.toLocaleString() }}</strong></td>
+                <td class="col-num"><strong>{{ currencySymbol }}{{ item.estimated_cost.toLocaleString() }}</strong></td>
                 <td class="col-num">
                   <span class="lead-badge">{{ item.lead_time_days }}d</span>
                 </td>
@@ -126,7 +126,7 @@
           <div class="summary-item">
             <span class="summary-label">Total cost</span>
             <span class="summary-value" :class="{ 'over-budget-text': totalSelected > budget }">
-              ${{ totalSelected.toLocaleString(undefined, { maximumFractionDigits: 0 }) }}
+              {{ currencySymbol }}{{ totalSelected.toLocaleString(undefined, { maximumFractionDigits: 0 }) }}
             </span>
           </div>
           <div class="summary-item">
@@ -158,12 +158,16 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { api } from '../api'
+import { useI18n } from '../composables/useI18n'
 
 export default {
   name: 'Restocking',
   setup() {
+    const { currentCurrency } = useI18n()
+    const currencySymbol = computed(() => currentCurrency.value === 'JPY' ? '¥' : '$')
+
     const loading = ref(true)
     const error = ref(null)
     const recommendations = ref([])
@@ -276,6 +280,7 @@ export default {
     }
 
     onMounted(loadRecommendations)
+    watch(budget, applyAutoSelect)
 
     return {
       loading,
@@ -295,6 +300,7 @@ export default {
       selectAll,
       deselectAll,
       placeOrder,
+      currencySymbol,
     }
   }
 }
