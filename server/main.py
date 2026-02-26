@@ -2,7 +2,25 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
+from datetime import datetime, timedelta, timezone
+import uuid
 from mock_data import inventory_items, orders, demand_forecasts, backlog_items, spending_summary, monthly_spending, category_spending, recent_transactions, purchase_orders
+
+# In-memory store for submitted restocking orders
+restocking_orders = []
+
+# Unit cost, category, and lead time per forecast SKU
+FORECAST_ITEM_META = {
+    "WDG-001": {"unit_cost": 45.00,  "category": "Industrial Parts",       "lead_time_days": 14},
+    "BRG-102": {"unit_cost": 28.50,  "category": "Mechanical Components",  "lead_time_days": 10},
+    "GSK-203": {"unit_cost": 12.75,  "category": "Sealing & Gaskets",      "lead_time_days": 7},
+    "MTR-304": {"unit_cost": 380.00, "category": "Motors & Drives",        "lead_time_days": 21},
+    "FLT-405": {"unit_cost": 8.99,   "category": "Filtration",             "lead_time_days": 5},
+    "VLV-506": {"unit_cost": 65.00,  "category": "Valves & Fittings",      "lead_time_days": 14},
+    "PSU-501": {"unit_cost": 18.99,  "category": "Power Supplies",         "lead_time_days": 7},
+    "SNR-420": {"unit_cost": 89.50,  "category": "Sensors",                "lead_time_days": 10},
+    "CTL-330": {"unit_cost": 125.00, "category": "Controllers",            "lead_time_days": 12},
+}
 
 app = FastAPI(title="Factory Inventory Management System")
 
@@ -303,6 +321,96 @@ def get_monthly_trends():
     result = list(months.values())
     result.sort(key=lambda x: x['month'])
     return result
+
+class RestockingRecommendation(BaseModel):
+    id: str
+    item_sku: str
+    item_name: str
+    category: str
+    current_demand: int
+    forecasted_demand: int
+    demand_gap: int
+    unit_cost: float
+    recommended_quantity: int
+    estimated_cost: float
+    lead_time_days: int
+
+class RestockingOrderItem(BaseModel):
+    sku: str
+    name: str
+    quantity: int
+    unit_cost: float
+    category: str
+
+class CreateRestockingOrderRequest(BaseModel):
+    items: List[RestockingOrderItem]
+    total_cost: float
+    notes: Optional[str] = None
+
+class RestockingOrder(BaseModel):
+    id: str
+    order_number: str
+    items: List[RestockingOrderItem]
+    status: str
+    submitted_at: str
+    estimated_delivery: str
+    total_cost: float
+    lead_time_days: int
+
+@app.get("/api/restocking/recommendations", response_model=List[RestockingRecommendation])
+def get_restocking_recommendations():
+    """Get restocking recommendations sorted by demand gap (highest first)."""
+    recommendations = []
+    for forecast in demand_forecasts:
+        gap = forecast["forecasted_demand"] - forecast["current_demand"]
+        if gap <= 0:
+            continue
+        sku = forecast["item_sku"]
+        meta = FORECAST_ITEM_META.get(sku, {"unit_cost": 50.00, "category": "General", "lead_time_days": 14})
+        recommendations.append({
+            "id": forecast["id"],
+            "item_sku": sku,
+            "item_name": forecast["item_name"],
+            "category": meta["category"],
+            "current_demand": forecast["current_demand"],
+            "forecasted_demand": forecast["forecasted_demand"],
+            "demand_gap": gap,
+            "unit_cost": meta["unit_cost"],
+            "recommended_quantity": gap,
+            "estimated_cost": round(gap * meta["unit_cost"], 2),
+            "lead_time_days": meta["lead_time_days"],
+        })
+    recommendations.sort(key=lambda x: x["demand_gap"], reverse=True)
+    return recommendations
+
+@app.post("/api/restocking/orders", response_model=RestockingOrder)
+def create_restocking_order(request: CreateRestockingOrderRequest):
+    """Submit a restocking order."""
+    order_id = str(uuid.uuid4())[:8]
+    order_number = f"RST-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{order_id.upper()}"
+    submitted_at = datetime.now(timezone.utc).isoformat()
+    max_lead_time = max(
+        (FORECAST_ITEM_META.get(item.sku, {}).get("lead_time_days", 14) for item in request.items),
+        default=14,
+    )
+    estimated_delivery = (datetime.now(timezone.utc) + timedelta(days=max_lead_time)).isoformat()
+    order = {
+        "id": order_id,
+        "order_number": order_number,
+        "items": [item.model_dump() for item in request.items],
+        "status": "Submitted",
+        "submitted_at": submitted_at,
+        "estimated_delivery": estimated_delivery,
+        "total_cost": request.total_cost,
+        "lead_time_days": max_lead_time,
+    }
+    restocking_orders.append(order)
+    return order
+
+@app.get("/api/restocking/orders", response_model=List[RestockingOrder])
+def get_restocking_orders():
+    """Get all submitted restocking orders."""
+    return restocking_orders
 
 if __name__ == "__main__":
     import uvicorn

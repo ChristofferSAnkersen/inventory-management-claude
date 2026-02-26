@@ -74,6 +74,38 @@
           </table>
         </div>
       </div>
+
+      <div v-if="restockingOrders.length > 0" class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ t('restocking.submittedOrders') }} ({{ restockingOrders.length }})</h3>
+        </div>
+        <div class="table-container">
+          <table class="orders-table">
+            <thead>
+              <tr>
+                <th>{{ t('restocking.table.orderNumber') }}</th>
+                <th>{{ t('restocking.table.items') }}</th>
+                <th>{{ t('orders.table.status') }}</th>
+                <th>{{ t('restocking.table.submitted') }}</th>
+                <th>{{ t('restocking.table.estDelivery') }}</th>
+                <th>{{ t('restocking.table.leadTime') }}</th>
+                <th>{{ t('restocking.table.totalCost') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="order in restockingOrders" :key="order.id">
+                <td><strong>{{ order.order_number }}</strong></td>
+                <td>{{ t('restocking.table.itemsCount', { count: order.items.length }) }}</td>
+                <td><span class="badge info">{{ order.status }}</span></td>
+                <td>{{ formatDate(order.submitted_at) }}</td>
+                <td>{{ formatDate(order.estimated_delivery) }}</td>
+                <td>{{ order.lead_time_days }} days</td>
+                <td><strong>{{ currencySymbol }}{{ order.total_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -95,6 +127,7 @@ export default {
     const loading = ref(true)
     const error = ref(null)
     const orders = ref([])
+    const restockingOrders = ref([])
 
     // Use shared filters
     const {
@@ -121,6 +154,15 @@ export default {
         error.value = 'Failed to load orders: ' + err.message
       } finally {
         loading.value = false
+      }
+    }
+
+    const loadRestockingOrders = async () => {
+      try {
+        restockingOrders.value = await api.getRestockingOrders()
+      } catch (e) {
+        console.error(e)
+        error.value = 'Failed to load restocking orders: ' + e.message
       }
     }
 
@@ -153,13 +195,17 @@ export default {
       })
     }
 
-    onMounted(loadOrders)
+    onMounted(() => {
+      loadOrders()
+      loadRestockingOrders()
+    })
 
     return {
       t,
       loading,
       error,
       orders,
+      restockingOrders,
       getOrdersByStatus,
       getOrderStatusClass,
       formatDate,

@@ -311,6 +311,20 @@ export default {
     selectLanguage: '言語を選択'
   },
 
+  // Restocking
+  restocking: {
+    submittedOrders: '発注済み注文',
+    table: {
+      orderNumber: '注文番号',
+      items: '品目',
+      submitted: '発注日',
+      estDelivery: '予定納期',
+      leadTime: 'リードタイム',
+      totalCost: '合計費用',
+      itemsCount: '{count}件'
+    }
+  },
+
   // Common
   common: {
     loading: '読み込み中...',
